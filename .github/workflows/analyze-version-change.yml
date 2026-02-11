@@ -145,6 +145,9 @@ jobs:
 
       - name: Run Gradle build to generate Ballerina files
         if: steps.diff.outputs.has_changes == 'true'
+        env:
+          packageUser: ${{ github.actor }}
+          packagePAT: ${{ secrets.PAT_TOKEN }}
         run: |
           # Run Gradle build which will use build-config/resources/Ballerina.toml
           # and generate the correct Ballerina.toml and Dependencies.toml in ballerina/ folder

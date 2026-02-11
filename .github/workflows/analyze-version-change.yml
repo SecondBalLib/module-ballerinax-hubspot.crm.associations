@@ -136,13 +136,44 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "change_type=$CHANGE_TYPE" >> $GITHUB_OUTPUT
 
-      - name: Commit version changes
+      - name: Set up Java
+        if: steps.diff.outputs.has_changes == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Run Gradle build to generate Ballerina files
+        if: steps.diff.outputs.has_changes == 'true'
+        run: |
+          # Run Gradle build which will use build-config/resources/Ballerina.toml
+          # and generate the correct Ballerina.toml and Dependencies.toml in ballerina/ folder
+          ./gradlew build -x test
+
+          echo "Generated Ballerina files:"
+          ls -la ballerina/Ballerina.toml ballerina/Dependencies.toml || true
+
+          echo "--- Ballerina.toml content ---"
+          cat ballerina/Ballerina.toml || true
+
+      - name: Commit version changes and generated files
         if: steps.diff.outputs.has_changes == 'true'
         run: |
           git config --local user.email "ballerina-bot@ballerina.io"
           git config --local user.name "ballerina-bot"
+
+          # Add gradle.properties and generated Ballerina files
           git add gradle.properties
-          git commit -m "Update version to ${{ steps.update_version.outputs.new_version }}"
+          git add ballerina/Ballerina.toml
+          git add ballerina/Dependencies.toml
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update version to ${{ steps.update_version.outputs.new_version }} and regenerate Ballerina files"
+          fi
+
           git push origin auto-generate-connector
 
       - name: Create Pull Request
